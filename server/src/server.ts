@@ -14,15 +14,16 @@ initializeConfig();
 import { analyzeImage, analyzeImageStructured } from './services/openAiService';
 
 const app = express();
-const port = 3001; // Oder ein anderer Port Ihrer Wahl
+const port = process.env.PORT ||3001; // Oder ein anderer Port Ihrer Wahl
 
 app.use(cors());
 app.use(express.json()); // Fügen Sie diese Zeile hinzu
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://ihre-frontend-domain.com',
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
+
 
 // Konfigurieren Sie multer für Datei-Uploads
 const storage = multer.diskStorage({

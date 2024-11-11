@@ -7,6 +7,7 @@ import { config } from './../config';
 import OpenAI from 'openai';
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
+//import { buildZodSchema } from '../utils/schemaBuilder';
 
 const openaiAxios: AxiosInstance = axios.create({
   baseURL: 'https://api.openai.com/v1',
@@ -19,32 +20,95 @@ const openaiAxios: AxiosInstance = axios.create({
 const openai = new OpenAI({
   apiKey: config.OPENAI_API_KEY
 });
+//const analyzeConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/analyze-config.json'), 'utf-8'));
 
 
 async function analyzeImageStructured(images: string[]): Promise<ImageAnalysisResult> {
   console.log(`Starte Bildanalyse für ${images.length} Bilder`);
+
+  //const zSchema = buildZodSchema(analyzeConfig);
   
-  const zSchema = z.object({
+  const zSchema1 = z.object({
     "analyses": z.array(z.object({
-      "Pflanzen-Arten": z.array(z.string()).describe("Liste der erkannten Pflanzenarten"),
-      "Vegetationshöhe": z.string().describe("Die Höhe der Vegetation: Kurz (<10cm) - Mittel (10-30cm) - Hoch (>30cm)"),
-      "Vegetationsdichte": z.string().describe("Die Dichte der Vegetation: Dünn - Mittel - Dicht"),
-      "Vegetationsstruktur": z.string().describe("Die Struktur der Vegetation: Offen (Bestand lücken aufweist - man sieht den Erdboden) - Mittel - Dicht(Bestand ist dicht und man sieht den Erdboden nicht)"),
-      "Blühintensität": z.string().describe("Keine Blüten - Wenige Blüten - Viele Blüten"),
-      "Habitat": z.string().describe("Ist es eines der folgenden Habitate? Entweder Magerwiese, Trockenrasen, Fettwiese, Magerweide, Fettweide, Niedermoor, Hochmoor, keines dieser Habitate?"),
-      "Pros": z.string().optional().describe("Besondere Merkmale, die für dieses erkannte Habitat sprechen"),
-      "Cons": z.string().optional().describe("Besondere Merkmale, die eher für einen anderen Habitat sprechen"),
-      "Wahrscheinlichkeit": z.number().describe("Die Wahrscheinlichkeit, dass das Habitat richtig erkannt wurde")
+      "standort": z.object({
+        "hangneigung": z.enum(["eben", "leicht_geneigt", "steil", "weis nicht"])
+          .describe("Hangneigung des Geländes"),
+        "exposition": z.enum(["N", "NO", "O", "SO", "S", "SW", "W", "NW", "weis nicht"])
+          .describe("Ausrichtung des Hanges"),
+        "bodenfeuchtigkeit": z.enum(["trocken", "frisch", "feucht", "nass", "wasserzügig", "weis nicht"])
+          .describe("Feuchtigkeit des Bodens")
+      }),
+      "pflanzenArten": z.array(
+        z.object({
+          "name": z.string().describe("Name der Pflanzenart in deutscher Sprache"),
+          "häufigkeit": z.enum(["einzeln", "zerstreut", "häufig", "dominant"])
+            .describe("Häufigkeit der Art im Bestand"),
+          "istZeiger": z.boolean().optional()
+            .describe("Ist die Art ein wichtiger Indikator?")
+        })
+      ).describe("Liste der erkannten Pflanzenarten mit Details"),
+      "Vegetationsstruktur": z.object({
+        "höhe": z.enum(["kurz", "mittel", "hoch"])
+          .describe("Höhe des Hauptbestandes"),
+        "dichte": z.enum(["dünn", "mittel", "dicht"])
+          .describe("Dichte der Vegetation"),
+        "deckung": z.enum(["offen", "mittel", "geschlossen"])
+          .describe("Bodendeckung der Vegetation")
+      }),
+      "blühaspekte": z.object({
+        "intensität": z.enum(["keine", "vereinzelt", "reich"])
+          .describe("Intensität der Blüte"),
+        "anzahlFarben": z.number()
+          .int()
+          .describe("Anzahl verschiedener Blütenfarben")
+      }),
+      "nutzung": z.object({
+        "beweidung": z.boolean()
+          .describe("Beweidungsspuren vorhanden"),
+        "mahd": z.boolean()
+          .describe("Mahdspuren vorhanden"),
+        "düngung": z.boolean()
+          .describe("Düngungsspuren vorhanden")
+      }),
+      "habitatTyp": z.enum([
+        "Magerwiese",
+        "Trockenrasen",
+        "Fettwiese",
+        "Magerweide",
+        "Fettweide",
+        "Niedermoor",
+        "Hochmoor",
+        "sonstiges"
+      ]).describe("Klassifizierung des Habitattyps"),
+      "schutzstatus": z.object({
+        "gesetzlich": z.number()
+          .int()
+          .describe("Mit welcher Wahrscheinlichkeit in Prozent ist es ein Habitat, der im Naturschutzgesetz angeführt ist - Nass- und Feuchtflächen:Verlandungsbereiche von stehenden oder langsam fließenden Gewässern, Schilf-, Röhricht- und Großseggenbestände, Feucht- und Nasswiesen mit Seggen und Binsen, Moore, Auwälder, Sumpf- und Bruchwälder, Quellbereiche, Naturnahe und unverbaute Bach- und Flussabschnitte sowie Wassergräben inklusive der Ufervegetation. Bei Trockenstandorte: Trockenrasen, Felsensteppen, Lehmbrüche?"),
+        "hochwertig": z.number()
+          .int()
+          .describe("Mit welcher Wahrscheinlichkeit in Prozent ist es ein ökologisch hochwertige Lebensraum, der nicht vom Gesetz erfasst ist: Magerwiese, Magerweide, Trockenrasen, Felsensteppen, Lehmbrüche?"),
+        "standard": z.number()
+          .int()
+          .describe("Mit Welcher Wahrscheinlichkeit in Prozent ist es ein ökologisch nicht hochwertige Lebensraum, wie Fettwiese, Fettweide, Kunstrasen aller Art, Parkanlagen, Ruderalflächen, u. a. Standardlebensraum?")
+      }),
+      "bewertung": z.object({
+        "artenreichtum": z.number()
+          .int()
+          .describe("Geschätzte Anzahl Arten pro 25m²"),
+        "konfidenz": z.number()
+          .int()
+          .describe("Konfidenz der Habitatbestimmung in Prozent")
+      }),
+      "evidenz": z.object({
+        "dafürSpricht": z.array(z.string())
+          .describe("Merkmale, die für die Klassifizierung sprechen"),
+        "dagegenSpricht": z.array(z.string())
+          .describe("Merkmale, die gegen die Klassifizierung sprechen")
+      }),
     }))
   });
-  /*
-  const zSchema = z.object({
-    "Habitat": z.string().describe("Die Beschreibung des Habitats"),
-    "Pflanzen-Arten": z.array(z.string()).describe("Liste der erkannten Pflanzenarten"),
-    "Besonderheiten": z.string().optional().describe("Besondere Merkmale oder Auffälligkeiten")
-  })
-  */
-
+  
+  
   try {
     // Alle Bilder in base64 konvertieren
     const imageContents = images.map(filename => ({
@@ -56,20 +120,20 @@ async function analyzeImageStructured(images: string[]): Promise<ImageAnalysisRe
     }));
 
     const systemInstruction = `
-      Du bist ein Biologe und solltest mir helfen Habitate anhand von Bildern zu erkennen. 
-      Du solltest sehr wissenschaftlich argumentieren.
+      Du bist ein erfahrener Vegetationsökologe und sollst bei der Habitatanalyse unterstützen. Argumentiere wissenschaftlich fundiert und berücksichtige alle verfügbaren Indizien für eine möglichst präzise Einschätzung.
     `.trim();
 
     const Question = `
-    Um eine Aussage zu treffen:
-    - Erkenne Indizien wie typische Pflanzenarten, Vegetationshöhe , Vegetationsdichte, Vegetationsstruktur,
-      Blühintensität
-    - Versuche aus diesen Indizien einen Habitattyp abzuleiten und verständlich zu erklären
-    - Erkenne den Hapitatstyp: Entweder Magerwiese, Trockenrasen, Fettwiese, Magerweide, Niedermoor, Hochmoor, anderes Habitate.
-    - Wenn du eine Aussage machst, erkläre bitte was dafür spricht
-    - Aber auch was dagegen spricht
-    Am Ende muss sich ein Mensch ein Bild machen, wie wahrscheinlich die Aussage ist.
-  `.trim();
+      Bitte analysiere das Habitat systematisch nach folgenden Kriterien:
+      1. Erfasse die Standortbedingungen und deren Einfluss auf die Vegetation
+      2. Identifiziere charakteristische Pflanzenarten und deren Häufigkeit
+      3. Beschreibe die Vegetationsstruktur und -dynamik
+      4. Dokumentiere Nutzungsspuren und deren Auswirkungen
+      5. Leite daraus den wahrscheinlichen Habitattyp ab
+      6. Bewerte die ökologische Qualität und Schutzwürdigkeit
+      7. Führe unterstützende und widersprechende Merkmale auf
+      8. Schätze die Konfidenz deiner Einordnung
+    `.trim();
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -89,7 +153,8 @@ async function analyzeImageStructured(images: string[]): Promise<ImageAnalysisRe
           ],
         },
       ],
-      response_format: zodResponseFormat(zSchema, "structured_analysis"),
+      temperature: 0.5,
+      response_format: zodResponseFormat(zSchema1, "structured_analysis"),
       max_tokens: 2000,
     });
 

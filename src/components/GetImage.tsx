@@ -3,30 +3,6 @@ import { Upload } from 'lucide-react'; // Stellen Sie sicher, dass Sie das richt
 import { Progress } from './ui/progress';
 import axios from 'axios'; // Sie müssen axios installieren: npm install axios
 
-const customSchema: any = {
-  type: "object",
-  properties: {
-    "Habitat" : {
-      type: "string",
-      description: "Die Beschreibung des Habitats"
-    },
-    "Pflanzenarten": {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "Liste der erkannten Pflanzenarten"
-    },
-    "Besonderheiten": {
-      type: "string",
-      description: "Besondere Merkmale oder Auffälligkeiten"
-    }
-  },
-  required: ["Habitat", "Pflanzen-Arten"]
-};
-
-
-
 interface GetImageProps {
   imageTitle: string;
   anweisung: string;

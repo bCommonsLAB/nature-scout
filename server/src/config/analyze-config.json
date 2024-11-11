@@ -1,0 +1,23 @@
+{
+  "analyses": {
+    "type": "array",
+    "items": {
+      "standort": {
+        "properties": {
+          "hangneigung": {
+            "enum": ["eben", "leicht_geneigt", "steil"],
+            "description": "Hangneigung des Geländes"
+          },
+          "exposition": {
+            "enum": ["N", "NO", "O", "SO", "S", "SW", "W", "NW"],
+            "description": "Ausrichtung des Hanges"
+          },
+          "bodenfeuchtigkeit": {
+            "enum": ["trocken", "frisch", "feucht", "nass", "wasserzügig"],
+            "description": "Feuchtigkeit des Bodens"
+          }
+        }
+      }
+    }
+  }
+} 
